@@ -67,6 +67,6 @@ t, h = sensor.measure()
 
 if t is None:
     print('Error in measurement:', sensor.last_error)
-    # Possible values: SHT20.DATA_ERROR, SHT20.BUS_ERROR, SHT20.CRC_ERROR
+    # Possible values: SHT30.DATA_ERROR, SHT30.BUS_ERROR, SHT30.CRC_ERROR
 
 ```
