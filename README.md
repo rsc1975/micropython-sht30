@@ -15,7 +15,8 @@ The SHT30 shield for ESP8266 board Wemos D1 Mini has an Arduino driver but not a
 
 ###How to get the temperature and relative humidity:
 
-The `SHT30#measure()` method returns a tuple with the temperature in celsius grades and the relative humidity in percentage.
+The `measure()` method returns a tuple with the temperature in celsius grades and the relative humidity in percentage. 
+If the measurement cannot be performed then an exception is raised (`SHT30Error`)
 
 ```python
 from sht30 import SHT30
@@ -27,10 +28,10 @@ temperature, humidity = sensor.measure()
 print('Temperature:', temperature, 'ºC, RH:', humidity, '%')
 ```
 
-There is another method, `measure_int()`, that returns 4 integer values, no floating operation is done, the four values are: 
+There is another method, `measure_int()`, that returns 4 integer values, no floating point operation is done, the four values are: 
 Temperature (integer part), Temperature (decimal part), RH (integer part), RH (decimal part)
 
-For intance, if the `measure()` method returns `(21.5623, 32.0712)` the `measure_int()` method would return: `(24, 56, 34, 7)` The decimal 
+For intance, if the `measure()` method returns `(21.5623, 32.0712)` the `measure_int()` method would return: `(24, 56, 32, 7)` The decimal 
 part is limited to 2 decimal digits.
 
 ```python
@@ -51,7 +52,6 @@ print('Is connected:', sensor.is_present())
 
 ```
 
-
 ###Read sensor status
 
 Check the [Sensor Datasheet](https://www.sensirion.com/fileadmin/user_upload/customers/sensirion/Dokumente/2_Humidity_Sensors/Sensirion_Humidity_Sensors_SHT3x_Datasheet_digital.pdf) for further info about sensor status register
@@ -64,6 +64,20 @@ print('Status register:', bin(sensor.status()))
 print('Single bit check, HEATER_MASK:', bool(sensor.status() & SHT30.HEATER_MASK))
 
 ```
+
+
+###Reset the sensor
+
+The driver allows a soft rest of the sensor
+
+```python
+from sht30 import SHT30
+
+sensor = SHT30()
+sensor.reset()
+
+```
+
 
 
 ###Error management
