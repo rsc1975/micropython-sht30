@@ -5,6 +5,8 @@ __version__ = '0.1.0'
 __author__ = 'Roberto Sánchez'
 __license__ = "Apache License 2.0. https://www.apache.org/licenses/LICENSE-2.0"
 
+# I2C address B 0x45 ADDR (pin 2) connected to VDD
+DEFAULT_I2C_ADDRESS = 0x45
 
 class SHT30():
     """
@@ -16,11 +18,6 @@ class SHT30():
     * https://github.com/wemos/WEMOS_SHT3x_Arduino_Library
     * https://www.sensirion.com/fileadmin/user_upload/customers/sensirion/Dokumente/11_Sample_Codes_Software/Humidity_Sensors/Sensirion_Humidity_Sensors_SHT3x_Sample_Code_V2.pdf
     """
-    NO_ERROR = None
-    BUS_ERROR = 0x01  # Sensor is not correctly connected
-    DATA_ERROR = 0x02 # Data from Sensor is not valid (usually It's all 0x00). Review the sensor connection.
-    CRC_ERROR = 0x03  # CRC code from sensor is not valid
-
     POLYNOMIAL = 0x131  # P(x) = x^8 + x^5 + x^4 + 1 = 100110001
 
     ALERT_PENDING_MASK = 0x8000 # 15
@@ -31,8 +28,6 @@ class SHT30():
     CMD_STATUS_MASK = 0x0002	# 1
     WRITE_STATUS_MASK = 0x0001	# 0
 
-    # I2C address B 0x45 ADDR (pin 2) connected to VDD
-    ADDRESS = 0x45
     # MSB = 0x2C LSB = 0x06 Repeatability = High, Clock stretching = enabled
     MEASURE_CMD = b'\x2C\x10'
     STATUS_CMD = b'\xF3\x2D'
@@ -41,27 +36,27 @@ class SHT30():
     ENABLE_HEATER_CMD = b'\x30\x6D'
     DISABLE_HEATER_CMD = b'\x30\x66'
 
-    def __init__(self, scl_pin=5, sda_pin=4, delta_temp = 0.0, delta_hum = 0.0):
-        self.scl = Pin(scl_pin)
-        self.sda = Pin(sda_pin)
-        self.i2c = I2C(scl=self.scl, sda=self.sda)
-        self.last_error = None
+    def __init__(self, scl_pin=5, sda_pin=4, delta_temp = 0.0, delta_hum = 0.0, i2c_address=DEFAULT_I2C_ADDRESS):
+        self.scl = scl_pin
+        self.sda = sda_pin
+        self.i2c = I2C(scl=Pin(self.scl), sda=Pin(self.sda))
+        self.i2c_address = i2c_address
         self.set_delta(delta_temp, delta_hum)
-        time.sleep(0.1)
+        time.sleep_ms(50)
     
     def init(self, scl_pin=5, sda_pin=4):
         """
         Init the I2C bus using the new pin values
         """
-        self.scl = Pin(scl_pin)
-        self.sda = Pin(sda_pin)
-        self.i2c.init(scl=self.scl, sda=self.sda)
+        self.scl = scl_pin
+        self.sda = sda_pin
+        self.i2c.init(scl=Pin(self.scl), sda=Pin(self.sda))
     
     def is_present(self):
         """
         Return true if the sensor is correctly conneced, False otherwise
         """
-        return SHT30.ADDRESS in self.i2c.scan()
+        return self.i2c_address in self.i2c.scan()
     
     def set_delta(self, delta_temp = 0.0, delta_hum = 0.0):
         """
@@ -85,32 +80,30 @@ class SHT30():
         crc_to_check = data[-1]
         return crc_to_check == crc
     
-    def send_cmd(self, cmd_request, response_size=6, read_delay=0.1):
+    def send_cmd(self, cmd_request, response_size=6, read_delay_ms=100):
         """
         Send a command to the sensor and read (optionally) the response
         The responsed data is validated by CRC
         """
         try:
-            self.last_error = None
             self.i2c.start(); 
-            self.i2c.writeto(SHT30.ADDRESS, cmd_request); 
+            self.i2c.writeto(self.i2c_address, cmd_request); 
             if not response_size:
                 self.i2c.stop(); 	
-                return SHT30.NO_ERROR
-            time.sleep(read_delay)
-            data = self.i2c.readfrom(SHT30.ADDRESS, response_size) # pos 2 and 5 are CRC
+                return
+            time.sleep_ms(read_delay_ms)
+            data = self.i2c.readfrom(self.i2c_address, response_size) # pos 2 and 5 are CRC
             self.i2c.stop(); 
             for i in range(response_size//3):
                 if not self._check_crc(data[i*3:(i+1)*3]):
-                    self.last_error = SHT30.CRC_ERROR
-                    return None
+                    raise SHT30Error(SHT30Error.CRC_ERROR)
             if data == bytearray(response_size):
-                self.last_error = SHT30.DATA_ERROR
-                return None
+                raise SHT30Error(SHT30Error.DATA_ERROR)
             return data
-        except:
-            self.last_error = SHT30.BUS_ERROR
-            return None
+        except OSError as ex:
+            if 'I2C' in ex.args[0]:
+                raise SHT30Error(SHT30Error.BUS_ERROR)
+            raise ex
 
     def clear_status(self):
         """
@@ -128,10 +121,7 @@ class SHT30():
         """
         Get the sensor status register
         """
-        data = self.send_cmd(SHT30.STATUS_CMD, 3); 
-
-        if self.last_error:
-            return None
+        data = self.send_cmd(SHT30.STATUS_CMD, 3, read_delay_ms=20); 
 
         status_register = data[0] << 8 | data[1]
         return status_register
@@ -143,10 +133,48 @@ class SHT30():
         """
         data = self.send_cmd(SHT30.MEASURE_CMD, 6); 
 
-        if self.last_error:
-            return None, None
+        t_celsius = (((data[0] << 8 |  data[1]) * 175) / 0xFFFF) - 45 + self.delta_temp;
+        rh = (((data[3] << 8 | data[4]) * 100.0) / 0xFFFF) + self.delta_hum;
+        return t_celsius, rh
 
-        temp_celsius = (((data[0] << 8 |  data[1]) * 175) / 0xFFFF) - 45 + self.delta_temp;
-        humidity = (((data[3] << 8 | data[4]) * 100.0) / 0xFFFF) + self.delta_hum;
-        return temp_celsius, humidity
+    def measure_int(self):
+        """
+        Get the temperature (T) and humidity (RH) measurement using integers.
+        Returns a tuple with 4 values: T integer, T decimal, H integer, H decimal
+        For instance to return T=24.0512 and RH= 34.662 This method will return
+        (24, 5, 34, 66) Only 2 decimal digits are returned, .05 becomes 5
+        Delta values are not applied in this method
+        The units are Celsius and percent.
+        """
+        data = self.send_cmd(SHT30.MEASURE_CMD, 6); 
+        aux = (data[0] << 8 | data[1]) * 175
+        t_int = (aux // 0xffff) - 45;
+        t_dec = (aux % 0xffff * 100) // 0xffff
+        aux = (data[3] << 8 | data[4]) * 100
+        h_int = aux // 0xffff
+        h_dec = (aux % 0xffff * 100) // 0xffff
+        return t_int, t_dec, h_int, h_dec
+
+
+class SHT30Error(Exception):
+    """
+    Custom exception for errors on sensor management
+    """
+    BUS_ERROR = 0x01 
+    DATA_ERROR = 0x02
+    CRC_ERROR = 0x03
+
+    def __init__(self, error_code=None):
+        self.error_code = error_code
+        super().__init__(self.get_message())
     
+    def get_message(self):
+        if self.error_code == SHT30Error.BUS_ERROR:
+            return "Bus error"
+        elif self.error_code == SHT30Error.DATA_ERROR:
+            return "Data error"
+        elif self.error_code == SHT30Error.CRC_ERROR:
+            return "CRC error"
+        else:
+            return "Unknown error"
+

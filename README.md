@@ -25,8 +25,20 @@ sensor = SHT30()
 temperature, humidity = sensor.measure()
 
 print('Temperature:', temperature, 'ºC, RH:', humidity, '%')
-
 ```
+
+There is another method `measure_int()` that returns 4 integer values, no floating operation is done, the four values are: 
+Temperature (integer part), Temperature (decimal part), RH (integer part), RH (decimal part)
+
+For intance, if the `measure()` method return `(21.5623, 32.0712)` the `measure_int()` method would return: `(24, 56, 34, 7)` The decimal 
+part is limited to 2 decimal digits.
+
+```python
+t_int, t_dec, h_int, h_dec = sensor.measure_int()
+
+print('Temperature: %i.%02i °C, RH: %i.%02i %%' % (t_int, t_dec, h_int, h_dec))
+```
+
 
 ###Check if shield is connected
 
@@ -56,17 +68,17 @@ print('Single bit check, HEATER_MASK:', bool(sensor.status() & SHT30.HEATER_MASK
 
 ###Error management
 
-When the driver cannot access to the measurement it returns None values and the field `last_error` is set
+When the driver cannot access to the measurement an exception `SHT30Error` is raised
 
 ```python
 from sht30 import SHT30
 
 sensor = SHT30()
 
-t, h = sensor.measure()
+try:
+    t, h = sensor.measure()
+except SHT30Error as ex:
+    print('Error:', ex)
 
-if t is None:
-    print('Error in measurement:', sensor.last_error)
-    # Possible values: SHT30.DATA_ERROR, SHT30.BUS_ERROR, SHT30.CRC_ERROR
 
 ```
