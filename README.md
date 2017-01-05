@@ -27,10 +27,10 @@ temperature, humidity = sensor.measure()
 print('Temperature:', temperature, 'ºC, RH:', humidity, '%')
 ```
 
-There is another method `measure_int()` that returns 4 integer values, no floating operation is done, the four values are: 
+There is another method, `measure_int()`, that returns 4 integer values, no floating operation is done, the four values are: 
 Temperature (integer part), Temperature (decimal part), RH (integer part), RH (decimal part)
 
-For intance, if the `measure()` method return `(21.5623, 32.0712)` the `measure_int()` method would return: `(24, 56, 34, 7)` The decimal 
+For intance, if the `measure()` method returns `(21.5623, 32.0712)` the `measure_int()` method would return: `(24, 56, 34, 7)` The decimal 
 part is limited to 2 decimal digits.
 
 ```python
