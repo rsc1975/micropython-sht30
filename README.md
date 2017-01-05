@@ -63,12 +63,15 @@ sensor = SHT30()
 print('Status register:', bin(sensor.status()))
 print('Single bit check, HEATER_MASK:', bool(sensor.status() & SHT30.HEATER_MASK))
 
+#The status register can be cleared with
+sensor.clear_status()
+
 ```
 
 
 ###Reset the sensor
 
-The driver allows a soft rest of the sensor
+The driver allows a soft reset of the sensor
 
 ```python
 from sht30 import SHT30
