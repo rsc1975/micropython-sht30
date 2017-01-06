@@ -1,7 +1,7 @@
 from machine import I2C, Pin
 import time
 
-__version__ = '0.2.0'
+__version__ = '0.2.1'
 __author__ = 'Roberto Sánchez'
 __license__ = "Apache License 2.0. https://www.apache.org/licenses/LICENSE-2.0"
 
@@ -36,11 +36,9 @@ class SHT30():
     ENABLE_HEATER_CMD = b'\x30\x6D'
     DISABLE_HEATER_CMD = b'\x30\x66'
 
-    def __init__(self, scl_pin=5, sda_pin=4, delta_temp = 0.0, delta_hum = 0.0, i2c_address=DEFAULT_I2C_ADDRESS):
-        self.scl = scl_pin
-        self.sda = sda_pin
-        self.i2c = I2C(scl=Pin(self.scl), sda=Pin(self.sda))
-        self.i2c_address = i2c_address
+    def __init__(self, scl_pin=5, sda_pin=4, delta_temp = 0, delta_hum = 0, i2c_address=DEFAULT_I2C_ADDRESS):
+        self.i2c = I2C(scl=Pin(scl_pin), sda=Pin(sda_pin))
+        self.i2c_addr = i2c_address
         self.set_delta(delta_temp, delta_hum)
         time.sleep_ms(50)
     
@@ -48,17 +46,15 @@ class SHT30():
         """
         Init the I2C bus using the new pin values
         """
-        self.scl = scl_pin
-        self.sda = sda_pin
-        self.i2c.init(scl=Pin(self.scl), sda=Pin(self.sda))
+        self.i2c.init(scl=Pin(scl_pin), sda=Pin(sda_pin))
     
     def is_present(self):
         """
         Return true if the sensor is correctly conneced, False otherwise
         """
-        return self.i2c_address in self.i2c.scan()
+        return self.i2c_addr in self.i2c.scan()
     
-    def set_delta(self, delta_temp = 0.0, delta_hum = 0.0):
+    def set_delta(self, delta_temp = 0, delta_hum = 0):
         """
         Apply a delta value on the future measurements of temperature and/or humidity
         The units are Celsius for temperature and percent for humidity (can be negative values)
@@ -87,15 +83,15 @@ class SHT30():
         """
         try:
             self.i2c.start(); 
-            self.i2c.writeto(self.i2c_address, cmd_request); 
+            self.i2c.writeto(self.i2c_addr, cmd_request); 
             if not response_size:
                 self.i2c.stop(); 	
                 return
             time.sleep_ms(read_delay_ms)
-            data = self.i2c.readfrom(self.i2c_address, response_size) # pos 2 and 5 are CRC
+            data = self.i2c.readfrom(self.i2c_addr, response_size) 
             self.i2c.stop(); 
             for i in range(response_size//3):
-                if not self._check_crc(data[i*3:(i+1)*3]):
+                if not self._check_crc(data[i*3:(i+1)*3]): # pos 2 and 5 are CRC
                     raise SHT30Error(SHT30Error.CRC_ERROR)
             if data == bytearray(response_size):
                 raise SHT30Error(SHT30Error.DATA_ERROR)
@@ -117,36 +113,48 @@ class SHT30():
         """
         return self.send_cmd(SHT30.RESET_CMD, None); 
 
-    def status(self):
+    def status(self, raw=False):
         """
-        Get the sensor status register
+        Get the sensor status register. 
+        It returns a int value or the bytearray(3) if raw==True
         """
         data = self.send_cmd(SHT30.STATUS_CMD, 3, read_delay_ms=20); 
+
+        if raw:
+            return data
 
         status_register = data[0] << 8 | data[1]
         return status_register
     
-    def measure(self):
+    def measure(self, raw=False):
         """
-        Get the temperature (T) and humidity (RH) measurement and return them.
+        If raw==True returns a bytearrya(6) with sensor direct measurement otherwise
+        It gets the temperature (T) and humidity (RH) measurement and return them.
+        
         The units are Celsius and percent
         """
         data = self.send_cmd(SHT30.MEASURE_CMD, 6); 
+
+        if raw:
+            return data
 
         t_celsius = (((data[0] << 8 |  data[1]) * 175) / 0xFFFF) - 45 + self.delta_temp;
         rh = (((data[3] << 8 | data[4]) * 100.0) / 0xFFFF) + self.delta_hum;
         return t_celsius, rh
 
-    def measure_int(self):
+    def measure_int(self, raw=False):
         """
         Get the temperature (T) and humidity (RH) measurement using integers.
-        Returns a tuple with 4 values: T integer, T decimal, H integer, H decimal
+        If raw==True returns a bytearrya(6) with sensor direct measurement otherwise
+        It returns a tuple with 4 values: T integer, T decimal, H integer, H decimal
         For instance to return T=24.0512 and RH= 34.662 This method will return
         (24, 5, 34, 66) Only 2 decimal digits are returned, .05 becomes 5
         Delta values are not applied in this method
         The units are Celsius and percent.
         """
         data = self.send_cmd(SHT30.MEASURE_CMD, 6); 
+        if raw: 
+            return data
         aux = (data[0] << 8 | data[1]) * 175
         t_int = (aux // 0xffff) - 45;
         t_dec = (aux % 0xffff * 100) // 0xffff
