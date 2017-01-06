@@ -2,6 +2,8 @@
 
 Micropython driver for [SHT30 Shield](https://www.wemos.cc/product/sht30-shield.html) for [Wemos D1 Mini (and PRO)](https://www.wemos.cc/product/d1-mini-pro.html).
 
+The driver has been tested on Wemos D1 mini PRO, but It should work on whatever other micropython board, if anyone find problems in other boards, please open an issue and We'll see.
+
 ##Motivation
 The SHT30 shield for ESP8266 board Wemos D1 Mini has an Arduino driver but not a micropython one.
 
