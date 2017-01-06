@@ -42,6 +42,13 @@ t_int, t_dec, h_int, h_dec = sensor.measure_int()
 print('Temperature: %i.%02i °C, RH: %i.%02i %%' % (t_int, t_dec, h_int, h_dec))
 ```
 
+Both methods allow a `raw` param that when It's `True` returns the sensor measurement as-is, It's a `bytearray(6)` with the format defined in the sensor datasheet document.
+
+```python
+raw_measure = sensor.measure(raw=True)
+
+print('Sensor measurement', raw_measure)
+```
 
 ###Check if shield is connected
 
