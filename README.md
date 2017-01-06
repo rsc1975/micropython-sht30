@@ -28,7 +28,9 @@ temperature, humidity = sensor.measure()
 print('Temperature:', temperature, 'ºC, RH:', humidity, '%')
 ```
 
-There is another method, `measure_int()`, that returns 4 integer values, no floating point operation is done, the four values are: 
+There is another method, `measure_int()`, that returns 4 integer values, **no floating point operation is done**, designed 
+for environments that doesn't support floating point operations, the four values are: 
+
 Temperature (integer part), Temperature (decimal part), RH (integer part), RH (decimal part)
 
 For intance, if the `measure()` method returns `(21.5623, 32.0712)` the `measure_int()` method would return: `(24, 56, 32, 7)` The decimal 
